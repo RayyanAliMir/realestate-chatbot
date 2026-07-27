@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Secrets
+.env
+
+# Local data (SQLite DB + Chroma vector store)
+backend/realestate_chatbot.db
+backend/realestate_chatbot.db.bak.*
+backend/chroma_data/
+
+# OS
+.DS_Store

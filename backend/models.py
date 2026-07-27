@@ -21,10 +21,12 @@ class Agent(Base):
     name = Column(String, nullable=False)
     email = Column(String, nullable=False, unique=True)
     widget_key = Column(String, nullable=False, unique=True)  # public key embedded in widget script
+    dashboard_key = Column(String, nullable=False, unique=True)  # private key for dashboard access, returned once at creation
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     listings = relationship("Listing", back_populates="agent")
     leads = relationship("Lead", back_populates="agent")
+    conversations = relationship("Conversation", back_populates="agent")
 
 
 class Listing(Base):
@@ -67,10 +69,33 @@ class Lead(Base):
     name = Column(String)
     contact = Column(String)  # phone or email, whatever the buyer gave
     question = Column(Text)  # what they were asking about when captured
-    conversation_id = Column(String)  # ties back to the in-memory chat session
+    conversation_id = Column(String, ForeignKey("conversations.id"))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     agent = relationship("Agent", back_populates="leads")
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(String, primary_key=True)  # UUID
+    agent_id = Column(String, ForeignKey("agents.id"), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    agent = relationship("Agent", back_populates="conversations")
+    messages = relationship("Message", back_populates="conversation", order_by="Message.created_at")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(String, primary_key=True)  # UUID
+    conversation_id = Column(String, ForeignKey("conversations.id"), nullable=False)
+    role = Column(String, nullable=False)  # "user" or "assistant"
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    conversation = relationship("Conversation", back_populates="messages")
 
 
 # --- DB setup helpers ---

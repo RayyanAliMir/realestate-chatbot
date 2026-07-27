@@ -2,15 +2,117 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Agent Listings Demo</title>
+  <title>2BR Apartment in Downtown Dubai</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      background: #f7f8fa;
+      color: #222;
+    }
+    .site-header {
+      background: white;
+      border-bottom: 1px solid #eee;
+      padding: 16px 24px;
+      font-weight: 700;
+      font-size: 18px;
+      color: #1a56db;
+    }
+    main {
+      max-width: 760px;
+      margin: 32px auto;
+      padding: 0 20px 60px;
+    }
+    .photo-placeholder {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #e3ebfd, #c7d7fb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #5b7fd6;
+      margin-bottom: 24px;
+    }
+    .photo-placeholder svg { width: 64px; height: 64px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    .location { color: #666; font-size: 15px; margin-bottom: 16px; }
+    .price { font-size: 26px; font-weight: 700; color: #1a56db; margin-bottom: 20px; }
+    .facts {
+      display: flex;
+      gap: 32px;
+      padding: 16px 0;
+      border-top: 1px solid #eee;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 20px;
+    }
+    .fact { font-size: 14px; color: #444; }
+    .fact strong { display: block; font-size: 18px; color: #111; }
+    .description { line-height: 1.6; color: #333; margin-bottom: 20px; }
+    .amenities { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+    .amenity-pill {
+      background: white;
+      border: 1px solid #e0e4ea;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      color: #444;
+    }
+    .agent-line {
+      font-size: 14px;
+      color: #666;
+      border-top: 1px solid #eee;
+      padding-top: 16px;
+    }
+    .hint {
+      font-size: 13px;
+      color: #999;
+      margin-top: 40px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-  <h1>Example Real Estate Agent Site</h1>
-  <p>This page shows the chat widget embedded in a normal agent website.</p>
+  <div class="site-header">Downtown Realty Listings</div>
+  <main>
+    <div class="photo-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M3 11 12 3l9 8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <h1>2BR Apartment in Downtown Dubai</h1>
+    <div class="location">Downtown Dubai</div>
+    <div class="price">AED 1,800,000</div>
+
+    <div class="facts">
+      <div class="fact"><strong>2</strong>Bedrooms</div>
+      <div class="fact"><strong>2</strong>Bathrooms</div>
+      <div class="fact"><strong>1,200</strong>Sqft</div>
+    </div>
+
+    <p class="description">
+      Spacious 2-bedroom apartment with Burj Khalifa views, recently renovated kitchen,
+      close to Dubai Mall.
+    </p>
+
+    <div class="amenities">
+      <span class="amenity-pill">Pool</span>
+      <span class="amenity-pill">Gym</span>
+      <span class="amenity-pill">Covered parking</span>
+    </div>
+
+    <div class="agent-line">Listed by Test Agent 2</div>
+
+    <p class="hint">This page demos the chat widget embedded on a real listing page —
+      click the chat bubble in the bottom right to ask about the property.</p>
+  </main>
 
   <!-- Replace data-api-base and data-widget-key with real values after registering an agent -->
   <script src="widget.js"
           data-api-base="http://localhost:8000"
-          data-widget-key="REPLACE_WITH_AGENT_WIDGET_KEY"></script>
+          data-widget-key="1d135d4f-3373-4e3d-b390-7fdfb9be0a7d"></script>
 </body>
 </html>

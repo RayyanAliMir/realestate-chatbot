@@ -14,14 +14,14 @@ import uuid
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import anthropic
 
 from database import get_db
-from models import Agent, Listing, Lead
+from models import Agent, Conversation, Listing, Lead, Message
 from rag import index_listing, remove_listing, retrieve_context
 
 load_dotenv()
@@ -37,14 +37,14 @@ app.add_middleware(
 
 claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-# In-memory conversation history for the MVP phase.
-# conversation_id -> list of {"role": ..., "content": ...}
-conversations: dict[str, list[dict]] = {}
-
 SYSTEM_PROMPT_TEMPLATE = """You are a helpful real estate assistant for {agent_name}.
 Answer buyer questions ONLY using the listing information provided in context below.
 Never invent a price, availability, or detail that isn't in the context - if you don't
 know, say so and offer to connect them with the agent.
+
+Write like {agent_name} texting a client: plain conversational sentences, no markdown.
+Never use tables, headers, bold/italic asterisks, bullet lists, or emojis - if you're
+listing a few details (like price and bedrooms), just say them in a normal sentence.
 
 If the buyer asks something you can't answer from the listings, OR shows strong buying
 interest (asks to view a property, asks about next steps, asks how to contact the agent),
@@ -91,11 +91,25 @@ def create_agent(payload: AgentCreate, db: Session = Depends(get_db)):
         name=payload.name,
         email=payload.email,
         widget_key=str(uuid.uuid4()),
+        dashboard_key=str(uuid.uuid4()),
     )
     db.add(agent)
     db.commit()
     db.refresh(agent)
-    return {"agent_id": agent.id, "widget_key": agent.widget_key}
+    return {"agent_id": agent.id, "widget_key": agent.widget_key, "dashboard_key": agent.dashboard_key}
+
+
+def require_dashboard_key(
+    agent_id: str,
+    x_dashboard_key: str = Header(default=None),
+    db: Session = Depends(get_db),
+) -> Agent:
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(404, "Agent not found")
+    if not x_dashboard_key or x_dashboard_key != agent.dashboard_key:
+        raise HTTPException(401, "Missing or invalid dashboard key")
+    return agent
 
 
 # --- Listing management ---
@@ -137,7 +151,14 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
         raise HTTPException(404, "Invalid widget key")
 
     conversation_id = payload.conversation_id or str(uuid.uuid4())
-    history = conversations.setdefault(conversation_id, [])
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not conversation:
+        conversation = Conversation(id=conversation_id, agent_id=agent.id)
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
+    history = [{"role": m.role, "content": m.content} for m in conversation.messages]
 
     context_chunks = retrieve_context(agent.id, payload.message)
     context_text = "\n\n---\n\n".join(context_chunks) if context_chunks else "(no matching listings found)"
@@ -145,6 +166,9 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(agent_name=agent.name, context=context_text)
 
     history.append({"role": "user", "content": payload.message})
+
+    db.add(Message(id=str(uuid.uuid4()), conversation_id=conversation.id, role="user", content=payload.message))
+    db.commit()
 
     response = claude.messages.create(
         model="claude-sonnet-4-6",
@@ -164,14 +188,14 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
             name=payload.buyer_name,
             contact=payload.buyer_contact,
             question=payload.message,
-            conversation_id=conversation_id,
+            conversation_id=conversation.id,
         ))
-        db.commit()
 
-    history.append({"role": "assistant", "content": reply_text})
+    db.add(Message(id=str(uuid.uuid4()), conversation_id=conversation.id, role="assistant", content=reply_text))
+    db.commit()
 
     return {
-        "conversation_id": conversation_id,
+        "conversation_id": conversation.id,
         "reply": reply_text,
         "lead_captured": lead_captured,
     }
@@ -180,7 +204,7 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
 # --- Dashboard endpoints ---
 
 @app.get("/agents/{agent_id}/leads")
-def get_leads(agent_id: str, db: Session = Depends(get_db)):
+def get_leads(agent_id: str, db: Session = Depends(get_db), agent: Agent = Depends(require_dashboard_key)):
     leads = db.query(Lead).filter(Lead.agent_id == agent_id).order_by(Lead.created_at.desc()).all()
     return [
         {
@@ -195,6 +219,9 @@ def get_leads(agent_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/agents/{agent_id}/conversations")
-def get_conversations(agent_id: str):
-    # MVP: in-memory only, no per-agent filtering yet (fine for a single-agent pilot)
-    return conversations
+def get_conversations(agent_id: str, db: Session = Depends(get_db), agent: Agent = Depends(require_dashboard_key)):
+    conversations = db.query(Conversation).filter(Conversation.agent_id == agent_id).all()
+    return {
+        c.id: [{"role": m.role, "content": m.content} for m in c.messages]
+        for c in conversations
+    }

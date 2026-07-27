@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Agent Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      background: #f7f8fa;
+      color: #222;
+    }
+    header {
+      background: #1a56db;
+      color: white;
+      padding: 16px 24px;
+      font-weight: 600;
+      font-size: 18px;
+    }
+    main {
+      max-width: 960px;
+      margin: 24px auto;
+      padding: 0 16px 48px;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .controls input {
+      flex: 1;
+      min-width: 200px;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .controls button {
+      border: none;
+      background: #1a56db;
+      color: white;
+      padding: 0 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .controls button:hover { background: #1443ad; }
+    section {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    section h2 {
+      margin: 0 0 16px;
+      font-size: 16px;
+      color: #1a56db;
+    }
+    .table-wrap {
+      border: 1px solid #ececef;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    thead tr {
+      background: #f8f9fb;
+    }
+    th, td {
+      text-align: left;
+      padding: 12px 14px;
+      vertical-align: top;
+    }
+    th {
+      color: #666;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border-bottom: 2px solid #ececef;
+    }
+    td {
+      border-bottom: 1px solid #f0f1f3;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafbfc; }
+    .empty-state {
+      color: #9aa0a6;
+      font-size: 14px;
+      padding: 32px 16px;
+      text-align: center;
+    }
+    .empty-cell {
+      text-align: center !important;
+      color: #9aa0a6;
+      padding: 32px 16px !important;
+    }
+    tbody tr:hover td.empty-cell { background: none; }
+    .conversations-layout {
+      display: flex;
+      gap: 16px;
+      min-height: 320px;
+    }
+    #conversation-list {
+      width: 220px;
+      flex-shrink: 0;
+      border-right: 1px solid #eee;
+      overflow-y: auto;
+      max-height: 480px;
+    }
+    .conversation-item {
+      padding: 10px 10px;
+      margin-bottom: 4px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #444;
+      word-break: break-all;
+      transition: background 0.12s ease;
+    }
+    .conversation-item:hover { background: #f0f3fb; }
+    .conversation-item.active {
+      background: #e8edfc;
+      color: #1a56db;
+      font-weight: 600;
+    }
+    #conversation-log {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 480px;
+      padding-right: 4px;
+    }
+    .msg {
+      margin-bottom: 12px;
+      line-height: 1.4;
+      font-size: 14px;
+      max-width: 80%;
+    }
+    .msg.user {
+      margin-left: auto;
+      text-align: right;
+      color: #1a56db;
+    }
+    .msg.assistant {
+      text-align: left;
+      color: #222;
+    }
+    .msg .role-label {
+      display: block;
+      font-size: 11px;
+      color: #999;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .status {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 16px;
+    }
+    .status.error { color: #c0392b; }
+  </style>
+</head>
+<body>
+  <header>Agent Dashboard</header>
+  <main>
+    <div class="controls">
+      <input id="api-base" type="text" placeholder="API base (e.g. http://localhost:8000)" value="http://localhost:8000" />
+      <input id="agent-id" type="text" placeholder="Agent ID" />
+      <input id="dashboard-key" type="password" placeholder="Dashboard key" />
+      <button id="load-btn">Load</button>
+    </div>
+    <div id="status" class="status"></div>
+
+    <section>
+      <h2>Leads</h2>
+      <div class="table-wrap">
+        <table id="leads-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Contact</th>
+              <th>Question</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="leads-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Conversations</h2>
+      <div class="conversations-layout">
+        <div id="conversation-list"></div>
+        <div id="conversation-log">
+          <div class="empty-state">Select a conversation to view its messages.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
