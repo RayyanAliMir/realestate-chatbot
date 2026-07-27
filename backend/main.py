@@ -10,7 +10,9 @@ Endpoints:
   GET  /agents/{agent_id}/conversations - dashboard: view chat logs
 """
 import os
+import time
 import uuid
+from collections import deque
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
@@ -36,6 +38,25 @@ app.add_middleware(
 )
 
 claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+# In-memory per-widget-key rate limit for /chat: resets on restart, fine for MVP scale.
+RATE_LIMIT_MAX_MESSAGES = 25
+RATE_LIMIT_WINDOW_SECONDS = 3600  # 1 hour
+rate_limit_history: dict[str, deque] = {}
+
+
+def check_rate_limit(widget_key: str):
+    now = time.time()
+    timestamps = rate_limit_history.setdefault(widget_key, deque())
+    cutoff = now - RATE_LIMIT_WINDOW_SECONDS
+    while timestamps and timestamps[0] < cutoff:
+        timestamps.popleft()
+    if len(timestamps) >= RATE_LIMIT_MAX_MESSAGES:
+        raise HTTPException(
+            429,
+            f"Too many messages - limit is {RATE_LIMIT_MAX_MESSAGES} per hour. Please try again later.",
+        )
+    timestamps.append(now)
 
 SYSTEM_PROMPT_TEMPLATE = """You are a helpful real estate assistant for {agent_name}.
 Answer buyer questions ONLY using the listing information provided in context below.
@@ -187,6 +208,8 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     agent = db.query(Agent).filter(Agent.widget_key == payload.widget_key).first()
     if not agent:
         raise HTTPException(404, "Invalid widget key")
+
+    check_rate_limit(payload.widget_key)
 
     conversation_id = payload.conversation_id or str(uuid.uuid4())
     conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
