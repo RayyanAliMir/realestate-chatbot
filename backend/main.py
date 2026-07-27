@@ -279,6 +279,7 @@ def get_conversations(agent_id: str, db: Session = Depends(get_db), agent: Agent
 
 
 if __name__ == "__main__":
+    # Entrypoint used when Railway (or any host) runs `python main.py` directly.
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
