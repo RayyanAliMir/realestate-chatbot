@@ -55,6 +55,44 @@ Listing context:
 {context}
 """
 
+EXTRACTION_SYSTEM_PROMPT = """Read this conversation between a real estate buyer and a chatbot.
+Call the extract_contact tool with the buyer's name and contact info (phone number or email),
+if they mentioned either anywhere in the conversation. Leave a field as an empty string if that
+piece of info was never given."""
+
+EXTRACT_CONTACT_TOOL = {
+    "name": "extract_contact",
+    "description": "Record the buyer's name and contact info as found in the conversation.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "Buyer's name, or empty string if not given"},
+            "contact": {"type": "string", "description": "Buyer's phone or email, or empty string if not given"},
+        },
+        "required": ["name", "contact"],
+    },
+}
+
+
+def extract_buyer_contact(messages: list[dict]) -> tuple[str | None, str | None]:
+    try:
+        response = claude.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=200,
+            system=EXTRACTION_SYSTEM_PROMPT,
+            tools=[EXTRACT_CONTACT_TOOL],
+            tool_choice={"type": "tool", "name": "extract_contact"},
+            messages=messages,
+        )
+    except anthropic.APIError as e:
+        print(f"extract_buyer_contact failed: {e}")
+        return None, None
+
+    for block in response.content:
+        if block.type == "tool_use" and block.name == "extract_contact":
+            return block.input.get("name") or None, block.input.get("contact") or None
+    return None, None
+
 
 # --- Pydantic schemas ---
 
@@ -182,14 +220,27 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     if "[CAPTURE_LEAD]" in reply_text:
         lead_captured = True
         reply_text = reply_text.replace("[CAPTURE_LEAD]", "").strip()
-        db.add(Lead(
-            id=str(uuid.uuid4()),
-            agent_id=agent.id,
-            name=payload.buyer_name,
-            contact=payload.buyer_contact,
-            question=payload.message,
-            conversation_id=conversation.id,
-        ))
+
+        # `history` already ends on the buyer's latest message - the extraction call
+        # requires the conversation to end on a user turn (no assistant prefill).
+        extracted_name, extracted_contact = extract_buyer_contact(history)
+        name = extracted_name or payload.buyer_name
+        contact = extracted_contact or payload.buyer_contact
+
+        existing_lead = db.query(Lead).filter(Lead.conversation_id == conversation.id).first()
+        if existing_lead:
+            existing_lead.name = name or existing_lead.name
+            existing_lead.contact = contact or existing_lead.contact
+            existing_lead.question = payload.message
+        else:
+            db.add(Lead(
+                id=str(uuid.uuid4()),
+                agent_id=agent.id,
+                name=name,
+                contact=contact,
+                question=payload.message,
+                conversation_id=conversation.id,
+            ))
 
     db.add(Message(id=str(uuid.uuid4()), conversation_id=conversation.id, role="assistant", content=reply_text))
     db.commit()
@@ -225,3 +276,9 @@ def get_conversations(agent_id: str, db: Session = Depends(get_db), agent: Agent
         c.id: [{"role": m.role, "content": m.content} for m in c.messages]
         for c in conversations
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
