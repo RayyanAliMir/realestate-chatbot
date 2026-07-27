@@ -2,10 +2,17 @@
 RAG pipeline: one Chroma collection per agent, so one agent's listings
 can never leak into another agent's chatbot answers.
 """
+import os
+
 import chromadb
 from models import Listing
 
-chroma_client = chromadb.PersistentClient(path="./chroma_data")
+CHROMA_PATH = os.path.abspath(os.getenv("CHROMA_PATH", "./chroma_data"))
+print(f"[rag] cwd={os.getcwd()} chroma_path={CHROMA_PATH} exists={os.path.isdir(CHROMA_PATH)}", flush=True)
+if os.path.isdir(CHROMA_PATH):
+    print(f"[rag] chroma_path contents: {os.listdir(CHROMA_PATH)}", flush=True)
+
+chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
 
 
 def _collection_name(agent_id: str) -> str:
